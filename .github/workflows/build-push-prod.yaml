@@ -7,7 +7,7 @@ on:
 
 env:
   REGISTRY: registry.easysolution.work
-  IMAGE_NAME: "hello-php"
+  IMAGE_NAME: "hello-php-main"
 
 jobs:
   build-and-push:
@@ -48,4 +48,5 @@ jobs:
         run: |
           curl -sf -X POST https://webhook.easysolution.work/webhook/build-complete \
             -H "Content-Type: application/json" \
-            -d '{"service":"hello-php","namespace":"hello-php","tag":"${{ steps.vars.outputs.short_sha }}"}'
+            -d '{"service":"hello-php-main","namespace":"hello-php","tag":"${{ steps.vars.outputs.short_sha }}"}'
+

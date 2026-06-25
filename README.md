@@ -11,6 +11,8 @@ Sadə PHP tətbiqi, Docker ilə hazır. Prometheus metrics dəstəyi var.
 | `/metrics`      | GET   | Prometheus metrics  |
 | `/api/hello`    | GET   | `?name=` ilə salam  |
 | `/items/{id}`   | GET   | Item məlumatı       |
+| `/csharp`       | GET   | hello-csharp servisinin cavabı |
+| `/aggregate`    | GET   | `?name=` — php + hello-csharp birləşmiş cavabı |
 
 ## Docker ilə işə salma
 

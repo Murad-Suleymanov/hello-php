@@ -26,6 +26,14 @@ function json_response(array $data, int $status = 200): void
     echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 }
 
+/**
+ * hello-csharp servisinin baza URL-i (env ilə override olunur).
+ */
+function csharp_service_url(): string
+{
+    return getenv('CSHARP_SERVICE_URL') ?: 'http://hello-csharp-main-svc.hello-csharp:8080/';
+}
+
 // Routing
 if ($path === '/' && $method === 'GET') {
     json_response(['message' => 'Hello PHP!', 'status' => 'working']);
@@ -37,6 +45,28 @@ if ($path === '/' && $method === 'GET') {
 } elseif (preg_match('#^/items/(\d+)$#', $path, $m) && $method === 'GET') {
     $q = $_GET['q'] ?? null;
     json_response(['item_id' => (int) $m[1], 'q' => $q]);
+} elseif ($path === '/csharp' && $method === 'GET') {
+    // hello-csharp servisinə (namespace: hello-csharp) müraciət et
+    $url = csharp_service_url();
+    $body = fetch_url($url);
+    if ($body === null) {
+        json_response(['error' => 'hello-csharp servisinə çatmaq mümkün olmadı', 'upstream' => $url], 502);
+    } else {
+        $decoded = json_decode($body, true);
+        json_response(['upstream' => $url, 'response' => $decoded ?? $body]);
+    }
+} elseif ($path === '/aggregate' && $method === 'GET') {
+    // php-nin öz salamını hello-csharp servisinin cavabı ilə birləşdir
+    $name = $_GET['name'] ?? 'World';
+    $csharpUrl = rtrim(csharp_service_url(), '/') . '/api/hello?name=' . urlencode($name);
+    $body = fetch_url($csharpUrl);
+    $csharp = $body === null ? null : (json_decode($body, true) ?? $body);
+    json_response([
+        'name' => $name,
+        'php' => "Hello, {$name}!",
+        'csharp' => $csharp,
+        'csharp_ok' => $body !== null,
+    ]);
 } elseif ($path === '/metrics' && $method === 'GET') {
     header('Content-Type: text/plain; version=0.0.4; charset=utf-8');
     echo render_metrics();

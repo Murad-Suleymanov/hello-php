@@ -36,5 +36,13 @@ php -S 0.0.0.0:8080 index.php
 
 - `http_requests_total` — request sayğacı (`method`, `endpoint` label-ları ilə)
 - `http_request_duration_seconds` — request müddəti histoqramı
+- `phpfpm_active_processes` — PHP-FPM aktiv proses sayı
+- `phpfpm_total_processes` — PHP-FPM ümumi proses sayı
 
 > Qeyd: sayğaclar proseslər arasında APCu shared memory vasitəsilə saxlanılır.
+>
+> PHP-FPM proses sayılarını `/metrics` endpoint-i vasitəsilə almaq üçün `PHP_FPM_STATUS_URL` env dəyişəni istifadə edilə bilər. Məsələn:
+>
+> ```bash
+> PHP_FPM_STATUS_URL=http://127.0.0.1/status docker run -p 8080:8080 hello-php
+> ```

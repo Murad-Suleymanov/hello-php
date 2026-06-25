@@ -55,7 +55,8 @@ function render_metrics(): string
     $lines = [];
 
     if (!function_exists('apcu_fetch')) {
-        return "# APCu mövcud deyil\n";
+        $lines[] = '# APCu mövcud deyil';
+        return implode("\n", array_merge($lines, render_phpfpm_metrics())) . "\n";
     }
 
     $lines[] = '# HELP http_requests_total Total HTTP request count';
@@ -101,7 +102,94 @@ function render_metrics(): string
         );
     }
 
+    $lines = array_merge($lines, render_phpfpm_metrics());
+
     return implode("\n", $lines) . "\n";
+}
+
+/**
+ * PHP-FPM proses gauge metriklərinin sətirlərini qaytar.
+ *
+ * APCu-dan asılı deyil — status səhifəsindən birbaşa oxunur.
+ *
+ * @return list<string>
+ */
+function render_phpfpm_metrics(): array
+{
+    $phpfpmStatus = get_phpfpm_process_metrics();
+
+    return [
+        '# HELP phpfpm_active_processes PHP-FPM active processes',
+        '# TYPE phpfpm_active_processes gauge',
+        sprintf('phpfpm_active_processes %d', $phpfpmStatus['active']),
+        '# HELP phpfpm_total_processes PHP-FPM total processes',
+        '# TYPE phpfpm_total_processes gauge',
+        sprintf('phpfpm_total_processes %d', $phpfpmStatus['total']),
+    ];
+}
+
+/**
+ * PHP-FPM process status metrics.
+ *
+ * Uses the URL from the PHP_FPM_STATUS_URL environment variable or
+ * defaults to http://127.0.0.1/status.
+ *
+ * @return array{active: int, total: int}
+ */
+function get_phpfpm_process_metrics(): array
+{
+    $url = getenv('PHP_FPM_STATUS_URL') ?: 'http://127.0.0.1/status';
+    $status = fetch_url($url);
+
+    if ($status === null) {
+        return ['active' => 0, 'total' => 0];
+    }
+
+    return parse_phpfpm_status($status);
+}
+
+function fetch_url(string $url): ?string
+{
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'GET',
+            'timeout' => 1,
+            'ignore_errors' => true,
+        ],
+    ]);
+
+    $result = @file_get_contents($url, false, $context);
+    return is_string($result) ? $result : null;
+}
+
+/**
+ * Parse PHP-FPM status page content.
+ *
+ * @return array{active: int, total: int}
+ */
+function parse_phpfpm_status(string $status): array
+{
+    $active = 0;
+    $idle = 0;
+
+    foreach (explode("\n", $status) as $line) {
+        $line = trim($line);
+        if ($line === '') {
+            continue;
+        }
+
+        if (stripos($line, 'active processes:') === 0) {
+            $active = (int) trim(substr($line, strlen('active processes:')));
+            continue;
+        }
+
+        if (stripos($line, 'idle processes:') === 0) {
+            $idle = (int) trim(substr($line, strlen('idle processes:')));
+            continue;
+        }
+    }
+
+    return ['active' => max($active, 0), 'total' => max($active + $idle, 0)];
 }
 
 /**

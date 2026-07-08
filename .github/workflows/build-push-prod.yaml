@@ -49,3 +49,4 @@ jobs:
           curl -sf -X POST https://webhook.easysolution.work/webhook/build-complete \
             -H "Content-Type: application/json" \
             -d '{"service":"hello-php","namespace":"hello-php","tag":"${{ steps.vars.outputs.short_sha }}"}'
+

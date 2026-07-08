@@ -10,7 +10,19 @@ Sadə PHP tətbiqi, Docker ilə hazır. Prometheus metrics dəstəyi var.
 | `/health`       | GET   | Sağlamlıq yoxlaması |
 | `/metrics`      | GET   | Prometheus metrics  |
 | `/api/hello`    | GET   | `?name=` ilə salam  |
+| `/api/csharp`   | GET   | `?name=` ilə hello-csharp servisinə müraciət |
 | `/items/{id}`   | GET   | Item məlumatı       |
+
+## Servislərarası çağırış
+
+`/api/csharp` endpoint-i hello-csharp servisinə HTTP GET (`/aggregate?name=`) göndərir.
+Hədəf URL `HELLO_CSHARP_URL` mühit dəyişəni ilə dəyişdirilə bilər, default:
+
+```
+http://hello-csharp-main-svc.hello-csharp.svc.cluster.local:8080
+```
+
+Servis əlçatan olmasa cavabda `"response": "unreachable"` qayıdır (tətbiq çökmür).
 
 ## Docker ilə işə salma
 

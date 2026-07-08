@@ -26,6 +26,39 @@ function json_response(array $data, int $status = 200): void
     echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 }
 
+/**
+ * hello-csharp servisinə GET sorğusu göndərib JSON cavabı massiv kimi qaytarır.
+ *
+ * Servis əlçatan olmasa (timeout, xəta, 2xx olmayan status) null qaytarır ki,
+ * hello-php özü çökməsin — hello-csharp-dakı downstream pattern-i ilə eynidir.
+ */
+function call_csharp(string $name): ?array
+{
+    $base = getenv('HELLO_CSHARP_URL')
+        ?: 'http://hello-csharp-main-svc.hello-csharp.svc.cluster.local:8080';
+    $url = rtrim($base, '/') . '/aggregate?name=' . rawurlencode($name);
+
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CONNECTTIMEOUT => 3,
+        CURLOPT_TIMEOUT => 5,
+        CURLOPT_HTTPHEADER => ['Accept: application/json'],
+    ]);
+    $body = curl_exec($ch);
+    $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    $error = curl_error($ch);
+    curl_close($ch);
+
+    if ($body === false || $status < 200 || $status >= 300) {
+        error_log("hello-csharp servisinə müraciət uğursuz oldu: {$error} (status {$status})");
+        return null;
+    }
+
+    $decoded = json_decode($body, true);
+    return is_array($decoded) ? $decoded : null;
+}
+
 // Routing
 if ($path === '/' && $method === 'GET') {
     json_response(['message' => 'Hello PHP!', 'status' => 'working']);
@@ -34,6 +67,19 @@ if ($path === '/' && $method === 'GET') {
 } elseif ($path === '/api/hello' && $method === 'GET') {
     $name = $_GET['name'] ?? 'World';
     json_response(['message' => "Hello, {$name}!"]);
+} elseif ($path === '/api/csharp' && $method === 'GET') {
+    // hello-php → hello-csharp servisinə müraciət edib cavabı birləşdirir.
+    $name = $_GET['name'] ?? 'World';
+    $csharp = call_csharp($name);
+    json_response([
+        'source' => 'hello-php',
+        'namespace' => 'hello-php',
+        'calledService' => [
+            'service' => 'hello-csharp',
+            'namespace' => 'hello-csharp',
+            'response' => $csharp ?? 'unreachable',
+        ],
+    ]);
 } elseif (preg_match('#^/items/(\d+)$#', $path, $m) && $method === 'GET') {
     $q = $_GET['q'] ?? null;
     json_response(['item_id' => (int) $m[1], 'q' => $q]);

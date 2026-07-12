@@ -59,6 +59,42 @@ function call_csharp(string $name): ?array
     return is_array($decoded) ? $decoded : null;
 }
 
+/**
+ * hello-csharp servisinin /error endpoint-inə GET sorğusu göndərir.
+ *
+ * call_csharp()-dan fərqi: 5xx cavab xəta sayılmır. Bu endpoint qəsdən həmişə
+ * 500 qaytarır, ona görə status kodu və cavab gövdəsi olduğu kimi geri verilir.
+ * Servis ümumiyyətlə əlçatmaz olsa status 0 olur.
+ *
+ * @return array{url: string, status: int, body: mixed}
+ */
+function call_csharp_error(): array
+{
+    $base = getenv('HELLO_CSHARP_URL')
+        ?: 'http://hello-csharp-main-svc.hello-csharp.svc.cluster.local:8080';
+    $url = rtrim($base, '/') . '/error';
+
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CONNECTTIMEOUT => 3,
+        CURLOPT_TIMEOUT => 5,
+        CURLOPT_HTTPHEADER => ['Accept: application/json'],
+    ]);
+    $body = curl_exec($ch);
+    $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    $error = curl_error($ch);
+    curl_close($ch);
+
+    if ($body === false) {
+        error_log("hello-csharp /error endpoint-inə çatmaq mümkün olmadı: {$error}");
+        return ['url' => $url, 'status' => 0, 'body' => null];
+    }
+
+    $decoded = json_decode($body, true);
+    return ['url' => $url, 'status' => $status, 'body' => $decoded ?? $body];
+}
+
 // Routing
 if ($path === '/' && $method === 'GET') {
     json_response(['message' => 'Hello PHP!', 'status' => 'working']);
@@ -80,6 +116,23 @@ if ($path === '/' && $method === 'GET') {
             'response' => $csharp ?? 'unreachable',
         ],
     ]);
+} elseif ($path === '/api/csharp-error' && $method === 'GET') {
+    // hello-php → hello-csharp /error — həmişə 500 qaytarır (error-rate testi üçün).
+    // Downstream status kodu olduğu kimi ötürülür ki, xəta hər iki servisin
+    // metrikalarında görünsün.
+    $result = call_csharp_error();
+    $reachable = $result['status'] > 0;
+    json_response([
+        'source' => 'hello-php',
+        'namespace' => 'hello-php',
+        'calledService' => [
+            'service' => 'hello-csharp',
+            'namespace' => 'hello-csharp',
+            'url' => $result['url'],
+            'statusCode' => $result['status'],
+            'response' => $reachable ? $result['body'] : 'unreachable',
+        ],
+    ], $reachable ? $result['status'] : 502);
 } elseif (preg_match('#^/items/(\d+)$#', $path, $m) && $method === 'GET') {
     $q = $_GET['q'] ?? null;
     json_response(['item_id' => (int) $m[1], 'q' => $q]);

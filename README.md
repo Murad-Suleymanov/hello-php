@@ -11,6 +11,7 @@ Sadə PHP tətbiqi, Docker ilə hazır. Prometheus metrics dəstəyi var.
 | `/metrics`      | GET   | Prometheus metrics  |
 | `/api/hello`    | GET   | `?name=` ilə salam  |
 | `/api/csharp`   | GET   | `?name=` ilə hello-csharp servisinə müraciət |
+| `/api/csharp-error` | GET | hello-csharp `/error` çağırır — həmişə 500 qaytarır |
 | `/items/{id}`   | GET   | Item məlumatı       |
 | `/csharp`       | GET   | hello-csharp servisinin cavabı |
 | `/aggregate`    | GET   | `?name=` — php + hello-csharp birləşmiş cavabı |
@@ -25,6 +26,13 @@ http://hello-csharp-main-svc.hello-csharp.svc.cluster.local:8080
 ```
 
 Servis əlçatan olmasa cavabda `"response": "unreachable"` qayıdır (tətbiq çökmür).
+
+### `/api/csharp-error` — qəsdən 500
+
+`/api/csharp-error` endpoint-i hello-csharp servisinin `/error` endpoint-ini çağırır. O endpoint
+test məqsədi ilə həmişə `500` qaytarır və hello-php həmin status kodunu olduğu kimi ötürür —
+beləcə xəta hər iki servisin metrikalarında (error rate, Kiali/Grafana) görünür.
+hello-csharp ümumiyyətlə əlçatmaz olsa `502` qayıdır.
 
 ## Docker ilə işə salma
 
